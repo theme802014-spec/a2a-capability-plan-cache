@@ -13,6 +13,6 @@ def main():
         {"step_id":"s2","domain":"health","capability":"health.sleep.analyze","skill_id":"health.sleep.analyze","contract_fingerprint":"sleep-contract"},
         {"step_id":"s3","domain":"community","capability":"community.activity.recommend","skill_id":"community.activity.recommend","contract_fingerprint":"community-contract"}], supply_snapshots={"community":card_v1})
     rebound = rebind_plan(entry, {"request":{"query":request["request"],"user_id":"current-user"}})
-    impact = assess_plan_impact({"dependencies":entry["dependencies"],"supplies":{"community":card_v1}}, lambda capability: {"fingerprint": "community-contract" if capability.startswith("community.") else ("health-contract" if capability == "health.profile.read" else "sleep-contract")}, {"community":card_v2}, now=1100)
+    impact = assess_plan_impact({"dependencies":[entry["dependencies"][2]],"supplies":{"community":card_v1}}, lambda capability: {"fingerprint": "community-contract" if capability.startswith("community.") else ("health-contract" if capability == "health.profile.read" else "sleep-contract")}, {"community":card_v2}, now=1100)
     print(json.dumps({"supply_delta":supply_delta(card_v1, card_v2),"rebound":rebound,"impact":impact}, ensure_ascii=False, indent=2))
 if __name__ == "__main__": main()

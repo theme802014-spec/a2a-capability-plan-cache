@@ -1,59 +1,124 @@
 # Capability Aware Agent Plan Cache
 
-Reference implementation for a capability aware plan cache in multi-agent systems. The current release is v0.2.0.
+[![Tests](https://github.com/theme802014-spec/a2a-capability-plan-cache/actions/workflows/test.yml/badge.svg)](https://github.com/theme802014-spec/a2a-capability-plan-cache/actions/workflows/test.yml)
+[![Release](https://img.shields.io/github/v/release/theme802014-spec/a2a-capability-plan-cache)](https://github.com/theme802014-spec/a2a-capability-plan-cache/releases)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-The project explores a narrow question:
+**Capability-aware plan caching for A2A multi-agent DAGs.** This reference implementation separates user demand, Agent Card supply, and executable plan evidence so a capability change can trigger targeted review instead of deleting every cached plan.
 
-> When a user request is decomposed into an executable DAG, how can the system reuse that plan while still detecting changes in the agents and skills that supplied the plan?
+The current release is **v0.2.0**.
 
-The reference design keeps three objects separate:
+## What problem does this solve?
+
+LLM planners repeatedly pay the cost of decomposing similar user requests into multi-agent DAGs. Reusing the last answer is unsafe because the current request and the underlying agent capabilities may have changed.
+
+This project caches the **plan shape**, not the previous answer:
+
+```text
+user request
+  → demand signature
+  → executable multi-agent DAG
+  → selected Agent / Skill dependencies
+  → Agent Card observation
+  → targeted impact analysis after a capability change
+  → reuse, semantic review, invalidation, or replanning
+```
+
+The design keeps three objects separate:
 
 - **Demand signature**: what the user is trying to accomplish, including constraints and ordering evidence.
 - **Supply observation**: a normalized, secret-free snapshot of an Agent Card and its skills.
-- **Plan evidence**: the cached DAG, its selected capabilities, contract fingerprints, and the supply observations used at planning time.
+- **Plan cache entry**: the DAG, selected capabilities, contract fingerprints, and supply evidence used when the plan was created.
 
-A later Agent Card observation can then produce a deterministic impact report:
+## 30-second demo
 
-```text
-compatible_observed
-candidate_replan
-invalidated
-unknown
+```bash
+git clone https://github.com/theme802014-spec/a2a-capability-plan-cache.git
+cd a2a-capability-plan-cache
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e '.[test]'
+python3 examples/run_demo.py
+pytest -q
 ```
 
-The impact analyzer is deliberately shadow-only. It reports direct dependency changes and semantic review opportunities; a production caller must apply its own freshness, compatibility, authorization, rollout, and execution policy.
+The synthetic example models a three-step workflow:
 
-## Scope
+```text
+read health background
+        ↓
+analyze sleep
+        ↓
+recommend community activities
+```
 
-Included:
+The demo then changes the community Agent Card. The analyzer reports:
 
-- source-grounded demand extraction validation
-- normalized Agent Card supply diffs
-- dependency-aware plan impact classification
-- small unit-testable Python modules
-- design notes and limitations
+```json
+{
+  "decision": "candidate_replan",
+  "directly_affected_steps": ["s3"],
+  "semantic_review_required": true
+}
+```
 
-Excluded:
+Only the community step is directly affected in this example. The demo uses synthetic data and makes no network calls.
+
+## Why this is different from answer caching
+
+| Approach | Cached object | Understands capability changes | Can target affected steps |
+|---|---|---:|---:|
+| Answer cache | Final response | No | No |
+| Prompt/KV cache | Context prefix | No | No |
+| Basic plan cache | DAG or plan template | Usually no | Usually no |
+| This reference | Demand + DAG + capability evidence | Yes, conservatively | Yes, as a review signal |
+
+The impact analyzer is deliberately **shadow-only**. It reports observations and review candidates; a production caller must apply its own freshness, compatibility, authorization, rollout, and execution policy.
+
+## Repository map
+
+```text
+src/capability_plan_cache/
+  demand_signature.py  Source-grounded demand validation
+  supply_changes.py    Field-level Agent Card diffs
+  impact.py            Conservative dependency-aware assessment
+  plan_cache.py        Plan evidence and current-request rebinding
+
+examples/
+  run_demo.py          Synthetic end-to-end demonstration
+  *.json               Demand, plan, and Agent Card fixtures
+
+schemas/
+  *.schema.json        Demand, supply, and plan evidence schemas
+
+docs/
+  architecture.md      System flow
+  data-model.md        Record definitions
+  lifecycle.md         Cache lifecycle and policy boundary
+  incremental-invalidation.md  Change classification
+  evaluation.md        Metrics and evidence limits
+  prior-art.md         Relationship to adjacent work
+  status.md            Implementation status
+```
+
+## Design boundary
+
+The public package intentionally excludes:
 
 - production service URLs and credentials
 - user data, health records, response caches, and SQLite databases
 - business-specific agent adapters
 - an assertion of patent novelty or universal originality
 
-The implementation is adapted from an independent 13B multi-agent system and reduced to a standalone reference package. The current release documents the mechanism and its observed boundaries; it does not claim that the full production gate or automatic replanning loop is complete.
+The implementation was reduced from an independent 13B multi-agent system into a standalone reference package. It documents the mechanism and its evidence boundaries; it does not claim that a full production cache gate or automatic replanning loop is complete.
 
-## Quick start
+## Contributing
 
-```bash
-python -m venv .venv
-. .venv/bin/activate
-pip install -e .
-pytest -q
-```
+The most useful contributions are reproducible examples, failure cases, evaluation protocols, and discussion of Agent Card input/output compatibility. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Design notes
+## Security
 
-Start with [docs/architecture.md](docs/architecture.md), then read [docs/data-model.md](docs/data-model.md), [docs/lifecycle.md](docs/lifecycle.md), and [docs/incremental-invalidation.md](docs/incremental-invalidation.md). Run [examples/run_demo.py](examples/run_demo.py) to see the synthetic end-to-end flow. See [docs/evaluation.md](docs/evaluation.md), [docs/prior-art.md](docs/prior-art.md), and [docs/status.md](docs/status.md) for evidence and limits.
+Do not submit credentials, personal records, private Agent Cards, raw authorization headers, or production cache/database files. See [SECURITY.md](SECURITY.md).
 
 ## License
 

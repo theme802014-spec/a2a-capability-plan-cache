@@ -1,0 +1,19 @@
+{
+  "request": "先读取我的健康档案，再分析睡眠，最后根据分析推荐社区活动",
+  "demand_signature": {
+    "schema": "planning-demand/v1",
+    "goals": [
+      {"id": "g1", "operation": "read", "target": "读取个人健康背景", "required": true},
+      {"id": "g2", "operation": "analyze", "target": "分析睡眠问题", "required": true},
+      {"id": "g3", "operation": "recommend", "target": "推荐社区活动", "required": true}
+    ],
+    "constraints": ["先读取，再分析，再推荐", "推荐需要使用分析结果"],
+    "source": "illustrative-example"
+  },
+  "steps": [
+    {"id": "s1", "agent": "health", "capability": "health.profile.read", "action": "read", "inputs": {"user_id": "$request.user_id"}, "depends_on": []},
+    {"id": "s2", "agent": "health", "capability": "health.sleep.analyze", "action": "analyze", "inputs": {"health_summary": "@s1.output.health_summary"}, "depends_on": ["s1"]},
+    {"id": "s3", "agent": "community", "capability": "community.activity.recommend", "action": "recommend", "inputs": {"query": "$request.query", "analysis": "@s2.output.analysis"}, "depends_on": ["s2"]}
+  ],
+  "note": "Synthetic example; contains no real user or service data."
+}

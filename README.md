@@ -1,6 +1,6 @@
 # Capability Aware Agent Plan Cache
 
-Reference implementation for a capability aware plan cache in multi-agent systems.
+Reference implementation for a capability aware plan cache in multi-agent systems. The current release is v0.2.0.
 
 The project explores a narrow question:
 
@@ -53,7 +53,7 @@ pytest -q
 
 ## Design notes
 
-Read [docs/design.md](docs/design.md) for the data model, lifecycle, invalidation boundaries, and related work. See [docs/status.md](docs/status.md) for the implementation and evaluation status as of 2026-11-17.
+Start with [docs/architecture.md](docs/architecture.md), then read [docs/data-model.md](docs/data-model.md), [docs/lifecycle.md](docs/lifecycle.md), and [docs/incremental-invalidation.md](docs/incremental-invalidation.md). Run [examples/run_demo.py](examples/run_demo.py) to see the synthetic end-to-end flow. See [docs/evaluation.md](docs/evaluation.md), [docs/prior-art.md](docs/prior-art.md), and [docs/status.md](docs/status.md) for evidence and limits.
 
 ## License
 

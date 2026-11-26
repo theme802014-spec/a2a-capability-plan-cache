@@ -16,7 +16,7 @@ request
   -> supply freshness and dependency assessment
   -> reuse, semantic review, or replan
   -> execute the DAG against current data
-  -> store plan evidence and the observed supply snapshot
+  -> store plan evidence with the supply snapshot captured BEFORE generation
 ```
 
 ## Evidence model
@@ -35,7 +35,7 @@ The demand record is not allowed to silently inherit from a similar cached reque
 
 ## Impact categories
 
-- `invalidated`: a required capability or directly bound Skill disappeared, or a required contract changed in a way the local policy treats as unsafe.
+- `invalidated`: a required capability or directly bound Skill disappeared, while required contract changes are reported as review candidates and blocked by the reuse policy.
 - `candidate_replan`: the old plan has a changed dependency or a new/modified capability may be a better fit; semantic review is needed.
 - `compatible_observed`: the observed dependency fields are unchanged and fresh enough for the local policy.
 - `unknown`: freshness, source identity, or required supply evidence is missing. Unknown is not proof of compatibility.

@@ -1,19 +1,88 @@
 {
   "request": "先读取我的健康档案，再分析睡眠，最后根据分析推荐社区活动",
   "demand_signature": {
-    "schema": "planning-demand/v1",
+    "schema": "planning-demand/v2",
+    "extractor_version": "planner-demand-v2",
+    "request_fingerprint": "ff5d7123edf4f8f1748915c4613667bcc1fb19e476b10ee70f62d5ba9cbaf50b",
+    "context_scope": "first_turn_without_external_context",
+    "semantic_extraction": "model_extracted_unverified",
+    "execution_effect": "none",
     "goals": [
-      {"id": "g1", "operation": "read", "target": "读取个人健康背景", "required": true},
-      {"id": "g2", "operation": "analyze", "target": "分析睡眠问题", "required": true},
-      {"id": "g3", "operation": "recommend", "target": "推荐社区活动", "required": true}
+      {
+        "id": "g1",
+        "operation": "read",
+        "target": "读取个人健康背景",
+        "evidence": "读取我的健康档案"
+      },
+      {
+        "id": "g2",
+        "operation": "analyze",
+        "target": "分析睡眠",
+        "evidence": "分析睡眠"
+      },
+      {
+        "id": "g3",
+        "operation": "recommend",
+        "target": "推荐社区活动",
+        "evidence": "根据分析推荐社区活动"
+      }
     ],
-    "constraints": ["先读取，再分析，再推荐", "推荐需要使用分析结果"],
-    "source": "illustrative-example"
+    "constraints": [],
+    "stored_profile": {
+      "usage": "requested",
+      "evidence": "读取我的健康档案"
+    },
+    "ordering": [
+      {
+        "before": "g1",
+        "after": "g2",
+        "evidence": "先读取我的健康档案，再分析睡眠"
+      },
+      {
+        "before": "g2",
+        "after": "g3",
+        "evidence": "再分析睡眠，最后根据分析推荐社区活动"
+      }
+    ],
+    "validation": "structure_and_source_only",
+    "record_fingerprint": "d8b266ce6e728eec069c8cd5b967902d6d32e8af866fa57929f952b327dac5c1"
   },
   "steps": [
-    {"id": "s1", "agent": "health", "capability": "health.profile.read", "action": "read", "inputs": {"user_id": "$request.user_id"}, "depends_on": []},
-    {"id": "s2", "agent": "health", "capability": "health.sleep.analyze", "action": "analyze", "inputs": {"health_summary": "@s1.output.health_summary"}, "depends_on": ["s1"]},
-    {"id": "s3", "agent": "community", "capability": "community.activity.recommend", "action": "recommend", "inputs": {"query": "$request.query", "analysis": "@s2.output.analysis"}, "depends_on": ["s2"]}
+    {
+      "id": "s1",
+      "agent": "health",
+      "capability": "health.profile.read",
+      "action": "read",
+      "inputs": {
+        "user_id": "$request.user_id"
+      },
+      "depends_on": []
+    },
+    {
+      "id": "s2",
+      "agent": "health",
+      "capability": "health.sleep.analyze",
+      "action": "analyze",
+      "inputs": {
+        "health_summary": "@s1.output.health_summary"
+      },
+      "depends_on": [
+        "s1"
+      ]
+    },
+    {
+      "id": "s3",
+      "agent": "community",
+      "capability": "community.activity.recommend",
+      "action": "recommend",
+      "inputs": {
+        "query": "$request.query",
+        "analysis": "@s2.output.analysis"
+      },
+      "depends_on": [
+        "s2"
+      ]
+    }
   ],
   "note": "Synthetic example; contains no real user or service data."
 }

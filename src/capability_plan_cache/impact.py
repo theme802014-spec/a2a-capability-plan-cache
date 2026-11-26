@@ -1,113 +1,121 @@
-"""Deterministic impact analysis for cached agent plans.
-
-This module deliberately reports observations and review candidates. It does not
-claim semantic compatibility and does not authorize execution by itself.
-"""
+"""Observed dependency impact, kept separate from reuse and execution policy."""
 from __future__ import annotations
 
-from typing import Any, Callable, Dict
+import math
+from typing import Any, Callable
 
 from .supply_changes import supply_delta
 
 
-def _freshness(snapshot: Dict[str, Any], now: float, max_age: float) -> str:
+def supply_freshness(snapshot: dict, now: float, max_age: float = 120) -> str:
     if snapshot.get("refresh_status") == "failed":
         return "refresh_failed"
     observed_at = snapshot.get("observed_at")
-    if not isinstance(observed_at, (int, float)) or isinstance(observed_at, bool):
+    if (isinstance(observed_at, bool) or not isinstance(observed_at, (int, float))
+            or not math.isfinite(observed_at)):
         return "unobserved"
     age = now - observed_at
     return "stale" if age > max_age or age < -5 else "fresh"
 
 
 def assess_plan_impact(
-    evidence: Dict[str, Any],
-    capability_getter: Callable[[str], Dict[str, Any] | None],
-    current_supplies: Dict[str, Dict[str, Any]],
-    *,
-    now: float,
-    max_age: float = 120,
-) -> Dict[str, Any]:
-    """Classify a cached plan against current capability observations.
+    evidence: dict[str, Any],
+    capability_getter: Callable[[str], dict | None],
+    current_supplies: dict[str, dict],
+    *, now: float, max_age: float = 120,
+) -> dict:
+    """Report observations; this function never executes or rewrites a plan.
 
-    Results are one of ``compatible_observed``, ``candidate_replan``,
-    ``invalidated``, or ``unknown``. The result is intentionally shadow-only:
-    callers must apply their own policy and execution gate.
+    Capability getters return ``{'fingerprint': <contract digest>}``. Required
+    supply uncertainty blocks reuse through the separate reuse policy. Unrelated
+    uncertainty is retained as opportunity evidence, without disabling a valid
+    plan. Card timestamps and source identities must be assigned by the observer.
     """
-    reasons, unknown, affected, opportunities = set(), set(), set(), set()
-    dependencies = list(evidence.get("dependencies") or [])
-    previous_supplies = evidence.get("supplies") or {}
-
-    for dependency in dependencies:
-        step_id = str(dependency.get("step_id") or "")
-        capability_id = str(dependency.get("capability") or "")
+    if not math.isfinite(now) or not math.isfinite(max_age) or max_age <= 0:
+        raise ValueError("finite time and positive freshness window required")
+    removed, changed, unknown, opportunities, opportunity_unknown = set(), set(), set(), set(), set()
+    affected = set()
+    dependencies = evidence.get("dependencies") or []
+    previous = evidence.get("supplies") or {}
+    if not dependencies:
+        unknown.add("plan_dependencies_missing")
+    for dep in dependencies:
+        capability_id = str(dep.get("capability") or "")
         capability = capability_getter(capability_id)
         if not capability:
-            reasons.add(f"capability_removed:{capability_id}")
-            affected.add(step_id)
-        elif dependency.get("contract_fingerprint") and capability.get("fingerprint") != dependency["contract_fingerprint"]:
-            reasons.add(f"manifest_changed:{capability_id}")
-            affected.add(step_id)
+            removed.add(f"capability_removed:{capability_id}")
+            affected.add(str(dep.get("step_id")))
+        elif not dep.get("contract_fingerprint"):
+            unknown.add(f"contract_unobserved:{capability_id}")
+        elif capability.get("fingerprint") != dep["contract_fingerprint"]:
+            changed.add(f"manifest_changed:{capability_id}")
+            affected.add(str(dep.get("step_id")))
 
-    required_domains = {str(item.get("domain")) for item in dependencies if item.get("domain")}
-    for domain in sorted(required_domains | set(previous_supplies) | set(current_supplies)):
-        old = previous_supplies.get(domain)
-        new = current_supplies.get(domain)
+    required_domains = {d.get("domain") for d in dependencies} - {None, ""}
+    for domain in sorted(required_domains | set(previous) | set(current_supplies)):
+        old, new = previous.get(domain), current_supplies.get(domain)
         required = domain in required_domains
-        if not new:
+        uncertainty = unknown if required else opportunity_unknown
+        if not old or not new:
             if required:
-                unknown.add(f"card_unobserved:{domain}")
+                uncertainty.add(f"card_unobserved:{domain}")
+            elif not new:
+                uncertainty.add(f"opportunity_supply_unobserved:{domain}")
+            else:
+                freshness = supply_freshness(new, now, max_age)
+                if freshness != "fresh":
+                    uncertainty.add(f"card_{freshness}:{domain}")
+                else:
+                    try:
+                        supply_delta(None, new)
+                        opportunities.add(f"new_supply_needs_semantic_review:{domain}")
+                    except (ValueError, TypeError):
+                        uncertainty.add(f"card_malformed:{domain}")
             continue
-        freshness = _freshness(new, now, max_age)
-        if freshness == "refresh_failed":
-            unknown.add(f"card_refresh_failed:{domain}")
+        if old.get("domain") != domain or new.get("domain") != domain:
+            uncertainty.add(f"card_domain_mismatch:{domain}")
             continue
+        freshness = supply_freshness(new, now, max_age)
         if freshness != "fresh":
-            unknown.add(f"card_{freshness}:{domain}")
+            uncertainty.add(f"card_{freshness}:{domain}")
             continue
-        if not old:
-            opportunities.add(f"new_supply_needs_semantic_review:{domain}")
-            continue
-        if old.get("source_id") != new.get("source_id"):
-            unknown.add(f"card_source_changed:{domain}")
+        if not old.get("source_id") or old.get("source_id") != new.get("source_id"):
+            uncertainty.add(f"card_source_changed:{domain}")
             continue
         try:
             delta = supply_delta(old, new)
         except (TypeError, ValueError):
-            unknown.add(f"card_malformed:{domain}")
+            uncertainty.add(f"card_malformed:{domain}")
             continue
-        bound = {str(item.get("skill_id")) for item in dependencies if item.get("domain") == domain and item.get("skill_id")}
-        missing = bound - set(new.get("skills") or {})
-        modified = bound & set(delta.get("modified_skills") or {})
+        bound = {d.get("skill_id") for d in dependencies if d.get("domain") == domain} - {None, ""}
+        if required and not bound:
+            unknown.add(f"bound_skill_unknown:{domain}")
+        missing = bound - set(new["skills"])
+        modified = bound & set(delta["modified_skills"])
         if missing:
-            reasons.add(f"bound_skill_removed:{domain}")
+            removed.add(f"bound_skill_removed:{domain}")
         if modified:
-            reasons.add(f"bound_skill_changed:{domain}")
-        if required and delta.get("global_fields"):
-            reasons.add(f"card_global_fields_changed:{domain}")
-        if required and delta.get("version_changed"):
-            reasons.add(f"card_version_changed:{domain}")
-        if missing or modified or delta.get("global_fields") or delta.get("version_changed"):
-            affected.update(str(item.get("step_id")) for item in dependencies if item.get("domain") == domain)
-        if set(delta.get("added_skills") or {}) - bound or set(delta.get("modified_skills") or {}) - bound:
+            changed.add(f"bound_skill_changed:{domain}")
+        global_change = bool(delta["global_fields"] or delta["version_changed"])
+        if required and delta["global_fields"]:
+            changed.add(f"card_global_fields_changed:{domain}")
+        if required and delta["version_changed"]:
+            changed.add(f"card_version_changed:{domain}")
+        for dep in dependencies:
+            if dep.get("domain") == domain and (dep.get("skill_id") in missing | modified or global_change):
+                affected.add(str(dep.get("step_id")))
+        if delta["added_skills"] or set(delta["modified_skills"]) - bound:
             opportunities.add(f"supply_change_needs_semantic_review:{domain}")
+        if not required and global_change:
+            opportunities.add(f"planning_environment_changed:{domain}")
 
-    if any(item.startswith(("capability_removed", "manifest_changed", "bound_skill_removed")) for item in reasons):
-        decision = "invalidated"
-    elif reasons or opportunities:
-        decision = "candidate_replan"
-    elif unknown:
-        decision = "unknown"
-    else:
-        decision = "compatible_observed"
+    decision = ("invalidated" if removed else "candidate_replan" if changed or opportunities
+                else "unknown" if unknown else "compatible_observed")
     return {
-        "schema": "planning-impact/v1",
-        "mode": "shadow",
-        "decision": decision,
-        "reasons": sorted(reasons | opportunities | unknown),
+        "schema": "planning-impact/v1", "mode": "shadow", "decision": decision,
+        "reasons": sorted(removed | changed | opportunities | unknown),
         "directly_affected_steps": sorted(affected),
         "semantic_review_required": bool(opportunities),
-        "uncertainties": sorted(unknown),
-        "execution_effect": "none",
-        "compatibility_scope": "observed_dependency_fields_only",
+        "uncertainties": sorted(unknown), "opportunity_uncertainties": sorted(opportunity_unknown),
+        "execution_effect": "none", "compatibility_scope": "observed_dependency_fields_only",
     }

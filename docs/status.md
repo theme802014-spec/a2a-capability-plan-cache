@@ -1,23 +1,20 @@
-# Status
+# Status — v0.3.0 (2026-11-25)
 
-Date: 2026-11-17
+The public package now contains deterministic impact analysis, an opt-in reuse
+policy, SQLite plan/history/observation persistence, durable Card-change review
+tasks, injected concurrent refresh, request rebinding, and bounded metrics.
 
-The source project has a working 13B workflow planner, DAG executor, A2A client paths, SQLite-backed planning knowledge, demand records, Agent Card observation, and shadow impact diagnostics.
+The full-DAG demo checks all three dependencies. Lifecycle and race demos use
+synthetic planner outputs, temporary databases and no network. They demonstrate
+policy and evidence consistency, not model intelligence.
 
-This public repository is a reduced reference extraction. It includes the deterministic parts that can be reviewed without the surrounding private business services:
+The source system integrates these ideas into an actual planner. Its optional
+`off`/`shadow`/`enforce` deployment modes, business adapters, authorization gates,
+HTTP statistics endpoints and real model calls are **not bundled here**. Do not
+interpret public tests as evidence of a production deployment or an independent
+semantic accuracy evaluation.
 
-- demand record structural and source validation
-- Agent Card normalization and field-level supply diffs
-- conservative dependency-aware impact classification
-
-The following remain deployment work rather than promises of this reference package:
-
-- automatic refresh on every cache lookup
-- an enforceable semantic compatibility gate
-- automatic targeted replan and active revision promotion
-- end-to-end production latency and cost claims
-- independent human-labelled accuracy evaluation
-
-Existing local experiments showed that exact plan-cache reuse can reduce repeated planning calls in the source system, but those measurements do not establish the accuracy or end-to-end benefit of the capability-aware incremental mechanism.
-
-The project should be described as an independent implementation and research direction with related prior work in plan caching, workflow dependency tracking, and Agent Card versioning. It should not be described as having no prior art or as a universal first invention.
+Remaining work includes semantic opportunity adjudication, automated review-result
+application, robust multi-step cross-wording reuse and independent end-to-end
+benchmarks. Reviews never automatically rewrite or execute a plan. See
+[evaluation-20261125.md](evaluation-20261125.md) for source-system evidence and limits.

@@ -6,7 +6,8 @@ A full Agent Card fingerprint is too coarse for plan maintenance. The reference 
 removed bound Skill / missing capability -> invalidated
 changed bound contract or interface      -> candidate_replan
 new unbound related Skill                 -> semantic_review_required
-failed or stale Card refresh              -> unknown
+failed or stale REQUIRED Card refresh     -> unknown
+unrelated stale/failed supply              -> opportunity_uncertainties
 unchanged fresh dependencies              -> compatible_observed
 ```
 

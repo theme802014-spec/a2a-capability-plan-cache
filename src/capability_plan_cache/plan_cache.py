@@ -36,11 +36,19 @@ def rebind_plan(entry: Dict[str, Any], current_request: Dict[str, Any]) -> Dict[
 
     def replace(value: Any) -> Any:
         if isinstance(value, str) and value.startswith("$request."):
-            return copy.deepcopy(request.get(value[len("$request."):]))
+            key = value[len("$request."):]
+            if key not in request:
+                raise ValueError(f"missing current request slot: {key}")
+            return copy.deepcopy(request[key])
         if isinstance(value, dict):
             return {key: replace(item) for key, item in value.items()}
         if isinstance(value, list):
             return [replace(item) for item in value]
         return value
 
-    return {"workflow": replace(copy.deepcopy(entry.get("workflow") or {"steps": []})), "request": copy.deepcopy(request), "source_entry_id": entry.get("entry_id")}
+    def bind_inputs(workflow):
+        for step in workflow.get("steps", []):
+            step["inputs"] = replace(step.get("inputs", {}))
+        return workflow
+
+    return {"workflow": bind_inputs(copy.deepcopy(entry.get("workflow") or {"steps": []})), "request": copy.deepcopy(request), "source_entry_id": entry.get("entry_id")}

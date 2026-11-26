@@ -17,6 +17,8 @@ Thank you for contributing examples, review cases, and implementation improvemen
 pip install -e '.[test]'
 pytest -q
 python3 examples/run_demo.py
+python3 examples/lifecycle_demo.py
+python3 examples/generation_race.py
 ```
 
 Keep examples synthetic. Do not include credentials, personal data, production URLs, private Agent Cards, or raw business execution results.

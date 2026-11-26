@@ -1,1 +1,30 @@
-{"schema":"planning-supply-observation/v1","domain":"community","card_version":"1.1.0","source_id":"example-community-agent","observed_at":1100,"refresh_status":"ok","skills":{"community.activity.recommend":{"name":"Activity recommendation","description":"Recommend community activities from a query, upstream analysis, and location","inputModes":["application/json"],"outputModes":["application/json"]},"community.activity.trade":{"name":"Second-hand activity marketplace","description":"Find second-hand community activities and listings","inputModes":["application/json"],"outputModes":["application/json"]}}}
+{
+  "schema": "planning-supply-observation/v1",
+  "domain": "community",
+  "card_version": "1.1.0",
+  "source_id": "example-community-agent",
+  "observed_at": 1100,
+  "refresh_status": "ok",
+  "skills": {
+    "community.activity.recommend": {
+      "name": "Activity recommendation",
+      "description": "Recommend community activities from a query, upstream analysis, and location",
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ]
+    },
+    "community.activity.trade": {
+      "name": "Second-hand activity marketplace",
+      "description": "Find second-hand community activities and listings",
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json"
+      ]
+    }
+  }
+}

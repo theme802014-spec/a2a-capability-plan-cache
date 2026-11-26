@@ -6,6 +6,6 @@
 4. Check Agent Card freshness, source identity, and dependency changes.
 5. Choose reuse, semantic review, invalidation, or replanning.
 6. Execute the DAG against current user data and downstream services.
-7. Store successful evidence as a new revision while retaining older revisions.
+7. Store evidence using the supply snapshot captured before generation; archive replaced entries. This reference does not validate business success.
 
-The reference analyzer is shadow-only. Unknown freshness, missing Card evidence, and semantic ambiguity remain visible instead of being silently treated as compatible.
+The reference analyzer reports observations; the separate store applies an opt-in conservative reuse policy. Unknown freshness, missing Card evidence, and semantic ambiguity remain visible instead of being silently treated as compatible.

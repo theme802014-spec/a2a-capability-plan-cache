@@ -17,6 +17,8 @@ def supply_delta(previous, current):
     """
     if not isinstance(current, dict) or not isinstance(current.get("skills"), dict):
         raise ValueError("Malformed current supply observation")
+    if any(not isinstance(k, str) or not isinstance(v, dict) for k, v in current["skills"].items()):
+        raise ValueError("Malformed skill observation")
     if previous is None:
         return {"schema": "planning-supply-delta/v1", "baseline_available": False,
                 "added_skills": sorted(current["skills"]), "removed_skills": [],

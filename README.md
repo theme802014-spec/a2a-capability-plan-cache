@@ -1,12 +1,11 @@
 # Capability Aware Agent Plan Cache
 
 [![Tests](https://github.com/theme802014-spec/a2a-capability-plan-cache/actions/workflows/test.yml/badge.svg)](https://github.com/theme802014-spec/a2a-capability-plan-cache/actions/workflows/test.yml)
-[![Release](https://img.shields.io/github/v/release/theme802014-spec/a2a-capability-plan-cache)](https://github.com/theme802014-spec/a2a-capability-plan-cache/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 **Capability-aware plan caching for A2A multi-agent DAGs.** This reference implementation separates user demand, Agent Card supply, and executable plan evidence so a capability change can trigger targeted review instead of deleting every cached plan.
 
-The current release is **v0.2.0**.
+The current release is **v0.3.0**.
 
 ## What problem does this solve?
 
@@ -39,6 +38,8 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -e '.[test]'
 python3 examples/run_demo.py
+python3 examples/lifecycle_demo.py
+python3 examples/generation_race.py
 pytest -q
 ```
 
@@ -73,7 +74,20 @@ Only the community step is directly affected in this example. The demo uses synt
 | Basic plan cache | DAG or plan template | Usually no | Usually no |
 | This reference | Demand + DAG + capability evidence | Yes, conservatively | Yes, as a review signal |
 
-The impact analyzer is deliberately **shadow-only**. It reports observations and review candidates; a production caller must apply its own freshness, compatibility, authorization, rollout, and execution policy.
+The impact analyzer reports observations; `cache_reuse_decision` is a separate opt-in policy. `PlanStore.lookup` applies that policy, while business authorization and execution remain the caller's responsibility.
+
+## New in v0.3.0
+
+- **Full-DAG fault isolation:** failed or stale unrelated suppliers do not disable unchanged execution dependencies.
+- **Generation-time evidence:** capture supply before planning; a Card update cannot relabel an older generation as current.
+- **SQLite lifecycle:** restart-safe plans, observations and archived replacement revisions.
+- **Durable review queue:** direct dependency tasks and opportunity candidates, with priorities, leases, retries and stale-task supersession.
+- **Concurrent refresh:** injected fetchers, per-instance single-flight batches, timeout and configuration-revision handling.
+- **Cost visibility:** bounded aggregate P50/P95, planner call counts and refresh time without request text.
+
+The lifecycle demo uses a planner stub and a temporary database. It covers generation, restart hit, unrelated failure, version change, stale-generation rejection, explicit replacement and renewed reuse. Nothing calls an LLM or a business service.
+
+Read [version consistency](docs/version-consistency.md), [review queue](docs/review-queue.md), and [refresh and metrics](docs/refresh-and-metrics.md). [Evaluation notes](docs/evaluation-20261125.md) distinguish source-system case studies from publicly reproducible synthetic tests.
 
 ## Repository map
 
@@ -83,9 +97,16 @@ src/capability_plan_cache/
   supply_changes.py    Field-level Agent Card diffs
   impact.py            Conservative dependency-aware assessment
   plan_cache.py        Plan evidence and current-request rebinding
+  reuse_policy.py      Conservative reuse gate and exact keys
+  store.py             SQLite plans, revisions and observations
+  review_queue.py      Durable change-review tasks
+  supply_refresh.py    Injected concurrent refresh
+  metrics.py           Bounded planning statistics
 
 examples/
-  run_demo.py          Synthetic end-to-end demonstration
+  run_demo.py          Full-DAG impact demonstration
+  lifecycle_demo.py    Persistent lifecycle with planner stub
+  generation_race.py   Card update during generation
   *.json               Demand, plan, and Agent Card fixtures
 
 schemas/
@@ -110,7 +131,7 @@ The public package intentionally excludes:
 - business-specific agent adapters
 - an assertion of patent novelty or universal originality
 
-The implementation was reduced from an independent 13B multi-agent system into a standalone reference package. It documents the mechanism and its evidence boundaries; it does not claim that a full production cache gate or automatic replanning loop is complete.
+The implementation was reduced from an independent 13B multi-agent system into a standalone reference package. It includes a conservative reference cache gate and persistence. Production adapters, semantic compatibility proofs and automatic review-driven replanning are outside this package.
 
 ## Contributing
 
